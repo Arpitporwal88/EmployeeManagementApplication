@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Employee Manager</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background-color: #f0f2f5;
+      margin: 0;
+      padding: 20px;
+    }
+
+    h1 {
+      text-align: center;
+      color: #333;
+    }
+
+    .controls {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+
+    .controls input {
+      padding: 8px;
+      width: 200px;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+    }
+
+    .controls select {
+      padding: 8px;
+      border-radius: 4px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    }
+
+    th, td {
+      padding: 12px;
+      border: 1px solid #ddd;
+      text-align: center;
+    }
+
+    th {
+      background-color: #007bff;
+      color: white;
+    }
+
+    button {
+      padding: 6px 12px;
+      border: none;
+      border-radius: 4px;
+      margin: 0 2px;
+      cursor: pointer;
+      color: white;
+    }
+
+    .edit-btn { background-color: #28a745; }
+    .delete-btn { background-color: #dc3545; }
+    .add-btn { background-color: #007bff; margin-bottom: 10px; }
+    .close-btn { background-color: #6c757d; }
+
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 999;
+      left: 0; top: 0;
+      width: 100%; height: 100%;
+      background: rgba(0,0,0,0.5);
+      justify-content: center;
+      align-items: center;
+    }
+
+    .modal-content {
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      width: 300px;
+    }
+
+    .alert {
+      background-color: #d4edda;
+      color: #155724;
+      padding: 10px;
+      border-radius: 5px;
+      margin-bottom: 10px;
+      display: none;
+    }
+
+    .loader {
+      border: 6px solid #f3f3f3;
+      border-top: 6px solid #3498db;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 30px auto;
+      display: none;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+  </style>
+</head>
+<body>
+
+  <h1>Employee Manager</h1>
+
+  <div class="controls">
+    <input type="text" id="search" placeholder="Search by name">
+    <select id="sort">
+      <option value="">Sort By</option>
+      <option value="name">Name</option>
+      <option value="salary">Salary</option>
+    </select>
+  </div>
+
+  <div class="alert" id="alertBox">Operation successful!</div>
+  <button class="add-btn" onclick="openModal()">Add Employee</button>
+
+  <div class="loader" id="loader"></div>
+
+  <table id="empTable">
+    <thead>
+      <tr>
+        <th>S.No</th><th>ID</th><th>Name</th><th>Salary</th><th>Email</th><th>Actions</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <div class="modal" id="modal">
+    <div class="modal-content">
+      <h3 id="modalTitle">Add Employee</h3>
+      <input type="hidden" id="empId">
+      <input type="text" id="name" placeholder="Name"><br><br>
+      <input type="number" id="salary" placeholder="Salary"><br><br>
+      <input type="email" id="mail" placeholder="Email"><br><br>
+      <button class="add-btn" onclick="saveEmployee()">Save</button>
+      <button class="close-btn" onclick="closeModal()">Cancel</button>
+    </div>
+  </div>
+
+  <script>
+    const API = "/emp";
+    let employees = [];
+
+    const loader = document.getElementById("loader");
+
+    function showLoader() { loader.style.display = "block"; }
+    function hideLoader() { loader.style.display = "none"; }
+
+    function fetchEmployees() {
+      showLoader();
+      fetch(`${API}/getemps`)
+        .then(res => res.json())
+        .then(data => {
+          employees = data;
+          display(data);
+          hideLoader();
+        });
+    }
+
+    function display(data) {
+      const tbody = document.querySelector("#empTable tbody");
+      tbody.innerHTML = "";
+
+      data.forEach((emp, index) => {
+        tbody.innerHTML += `
+          <tr>
+            <td>${index + 1}</td>
+            <td>${emp.id}</td>
+            <td>${emp.name}</td>
+            <td>${emp.salary}</td>
+            <td>${emp.mail}</td>
+            <td>
+              <button class="edit-btn" onclick='editEmployee(${JSON.stringify(emp)})'>Edit</button>
+              <button class="delete-btn" onclick='deleteEmployee(${emp.id})'>Delete</button>
+            </td>
+          </tr>`;
+      });
+    }
+
+    function openModal() {
+      document.getElementById("modal").style.display = "flex";
+      document.getElementById("modalTitle").innerText = "Add Employee";
+      document.getElementById("empId").value = "";
+      document.getElementById("name").value = "";
+      document.getElementById("salary").value = "";
+      document.getElementById("mail").value = "";
+    }
+
+    function closeModal() {
+      document.getElementById("modal").style.display = "none";
+    }
+
+    function showAlert(msg) {
+      const box = document.getElementById("alertBox");
+      box.innerText = msg;
+      box.style.display = "block";
+      setTimeout(() => box.style.display = "none", 2000);
+    }
+
+    function saveEmployee() {
+      const id = document.getElementById("empId").value;
+      const name = document.getElementById("name").value;
+      const salary = document.getElementById("salary").value;
+      const mail = document.getElementById("mail").value;
+
+      if (!name || !salary || !mail) return alert("All fields required");
+
+      const emp = { name, salary, mail };
+      const url = id ? `${API}/${id}` : `${API}/save`;
+      const method = id ? "PUT" : "POST";
+
+      fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(emp)
+      }).then(() => {
+        closeModal();
+        fetchEmployees();
+        showAlert(id ? "Employee updated!" : "Employee added!");
+      });
+    }
+
+    function editEmployee(emp) {
+      document.getElementById("modalTitle").innerText = "Edit Employee";
+      document.getElementById("empId").value = emp.id;
+      document.getElementById("name").value = emp.name;
+      document.getElementById("salary").value = emp.salary;
+      document.getElementById("mail").value = emp.mail;
+      document.getElementById("modal").style.display = "flex";
+    }
+
+    function deleteEmployee(id) {
+      if (confirm("Are you sure to delete?")) {
+        fetch(`${API}/delete/${id}`, { method: "DELETE" })
+          .then(() => {
+            fetchEmployees();
+            showAlert("Employee deleted!");
+          });
+      }
+    }
+
+    document.getElementById("search").addEventListener("input", e => {
+      const val = e.target.value.toLowerCase();
+      const filtered = employees.filter(emp => emp.name.toLowerCase().includes(val));
+      display(filtered);
+    });
+
+    document.getElementById("sort").addEventListener("change", e => {
+      const sortKey = e.target.value;
+      if (!sortKey) return display(employees);
+      const sorted = [...employees].sort((a, b) => {
+        if (sortKey === "salary") return a.salary - b.salary;
+        return a.name.localeCompare(b.name);
+      });
+      display(sorted);
+    });
+
+    fetchEmployees();
+  </script>
+</body>
+</html>
